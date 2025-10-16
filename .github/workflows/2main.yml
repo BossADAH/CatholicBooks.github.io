@@ -1,0 +1,95 @@
+name: Build and Deploy Catholic Blog
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.1
+
+      - name: Install Jekyll
+        run: |
+          gem install bundler jekyll
+          bundle init
+          echo 'gem "jekyll", "~> 4.3.2"' >> Gemfile
+          bundle install
+
+      - name: Generate blog pages automatically
+        run: |
+          # Ensure pages folder exists
+          mkdir -p pages
+
+          # 1️⃣ Home Page
+          echo '---' > pages/index.md
+          echo 'layout: home' >> pages/index.md
+          echo 'title: "Home"' >> pages/index.md
+          echo '---' >> pages/index.md
+          echo '' >> pages/index.md
+          echo '# ✝️ Welcome to Catholic Reflections' >> pages/index.md
+          echo 'Your home for Daily Readings, Catholic Books, Theology, and News.' >> pages/index.md
+
+          # 2️⃣ Catholic Books
+          echo '---' > pages/catholic-books.md
+          echo 'title: "Catholic Books"' >> pages/catholic-books.md
+          echo 'layout: page' >> pages/catholic-books.md
+          echo 'permalink: /catholic-books/' >> pages/catholic-books.md
+          echo '---' >> pages/catholic-books.md
+          echo '' >> pages/catholic-books.md
+          echo '## 📚 Catholic Book Library' >> pages/catholic-books.md
+          echo '' >> pages/catholic-books.md
+
+          if [ -d "books" ]; then
+            for file in $(ls books); do
+              name=$(basename "$file")
+              echo "- [${name}](../books/${name})" >> pages/catholic-books.md
+            done
+          else
+            echo "No books uploaded yet." >> pages/catholic-books.md
+          fi
+
+          echo '' >> pages/catholic-books.md
+          echo '_New books appear automatically when you push them to the /books folder._' >> pages/catholic-books.md
+
+          # 3️⃣ Catholic News
+          echo '---' > pages/catholic-news.md
+          echo 'title: "Catholic News"' >> pages/catholic-news.md
+          echo 'layout: page' >> pages/catholic-news.md
+          echo 'permalink: /catholic-news/' >> pages/catholic-news.md
+          echo '---' >> pages/catholic-news.md
+          echo '' >> pages/catholic-news.md
+          echo '## 📰 Catholic News & Updates' >> pages/catholic-news.md
+          echo '' >> pages/catholic-news.md
+          echo 'Latest headlines, Church teachings, and Vatican updates.' >> pages/catholic-news.md
+
+          # 4️⃣ Theology Studies
+          echo '---' > pages/theology.md
+          echo 'title: "Theology Studies"' >> pages/theology.md
+          echo 'layout: page' >> pages/theology.md
+          echo 'permalink: /theology/' >> pages/theology.md
+          echo '---' >> pages/theology.md
+          echo '' >> pages/theology.md
+          echo '## 🎓 Theology and Faith Studies' >> pages/theology.md
+          echo '' >> pages/theology.md
+          echo 'Explore Christology, Mariology, Sacraments, and Church Fathers.' >> pages/theology.md
+
+      - name: Build site
+        run: bundle exec jekyll build -d _site
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
