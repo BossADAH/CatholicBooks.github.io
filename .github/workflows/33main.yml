@@ -1,0 +1,121 @@
+name: Build and Deploy Catholic Jekyll Catholic Blog
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.1
+
+      - name: Install Jekyll
+        run: |
+          gem install bundler jekyll
+          bundle init
+          echo 'gem "jekyll", "~> 4.3.2"' >> Gemfile
+          bundle install
+
+      - name: Ensure folders exist
+        run: |
+          mkdir -p pages books _layouts
+          touch index.md pages/catholic-books.md pages/catholic-news.md pages/theology.md
+
+      - name: Generate Home Page
+        run: |
+          cat > index.md <<EOL
+---
+layout: default
+title: "Home"
+---
+
+# ✝️ Welcome to Catholic Reflections
+
+Your hub for Daily Readings, Catholic Books, Theology, and Catholic News.
+EOL
+
+      - name: Generate Catholic Books Page
+        run: |
+          cat > pages/catholic-books.md <<EOL
+---
+layout: default
+title: "Catholic Books"
+permalink: /catholic-books/
+---
+
+## 📚 Catholic Book Library
+EOL
+
+          # Loop through books and generate structured entries
+          for file in books/*; do
+            filename=$(basename "$file")
+            title="${filename%.*}"
+            description_file="books/${title}.txt"
+            if [ -f "$description_file" ]; then
+              description=$(cat "$description_file")
+            else
+              description="No description available."
+            fi
+            echo "---" >> pages/catholic-books.md
+            echo "title: \"$title\"" >> pages/catholic-books.md
+            echo "description: \"$description\"" >> pages/catholic-books.md
+            echo "file_url: /books/$filename" >> pages/catholic-books.md
+            echo "layout: book" >> pages/catholic-books.md
+            echo "---" >> pages/catholic-books.md
+            echo "" >> pages/catholic-books.md
+          done
+
+      - name: Generate Catholic News Page
+        run: |
+          cat > pages/catholic-news.md <<EOL
+---
+layout: default
+title: "Catholic News"
+permalink: /catholic-news/
+---
+
+## 📰 Catholic News & Updates
+Latest headlines, Church teachings, and Vatican updates.
+EOL
+
+      - name: Generate Theology Page
+        run: |
+          cat > pages/theology.md <<EOL
+---
+layout: default
+title: "Theology Studies"
+permalink: /theology/
+---
+
+## 🎓 Theology and Faith Studies
+
+Explore Christology, Mariology, Sacraments, and Church Fathers.
+EOL
+
+      - name: Commit auto-generated pages
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add index.md pages/*.md
+          git commit -m "Auto-update blog pages" || echo "No changes to commit"
+          git push
+
+      - name: Build site
+        run: bundle exec jekyll build -d _site
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
