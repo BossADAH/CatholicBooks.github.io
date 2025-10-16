@@ -1,0 +1,119 @@
+name: Build and Deploy Catholic Blog
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.1
+
+      - name: Install Jekyll
+        run: |
+          gem install bundler jekyll
+          bundle init
+          echo 'gem "jekyll", "~> 4.3.2"' >> Gemfile
+          bundle install
+
+      - name: Ensure folders exist
+        run: |
+          mkdir -p pages
+          mkdir -p books
+          touch pages/catholic-books.md
+          touch pages/catholic-news.md
+          touch pages/theology.md
+          touch index.md
+
+      - name: Generate blog pages automatically
+        run: |
+          # --------------------
+          # Home Page
+          # --------------------
+          cat > index.md <<EOL
+---
+layout: home
+title: "Home"
+---
+
+# ✝️ Welcome to Catholic Reflections
+
+Your home for Daily Readings, Catholic Books, Theology, and News.
+EOL
+
+          # --------------------
+          # Catholic Books Page
+          # --------------------
+          cat > pages/catholic-books.md <<EOL
+---
+title: "Catholic Books"
+layout: page
+permalink: /catholic-books/
+---
+
+## 📚 Catholic Book Library
+
+EOL
+
+          # List uploaded books automatically
+          if [ "$(ls -A books 2>/dev/null)" ]; then
+            for file in books/*; do
+              name=$(basename "$file")
+              echo "- [${name}](../books/${name})" >> pages/catholic-books.md
+            done
+          else
+            echo "No books uploaded yet." >> pages/catholic-books.md
+          fi
+
+          echo '' >> pages/catholic-books.md
+          echo '_New books appear automatically when you push them to the /books folder._' >> pages/catholic-books.md
+
+          # --------------------
+          # Catholic News Page
+          # --------------------
+          cat > pages/catholic-news.md <<EOL
+---
+title: "Catholic News"
+layout: page
+permalink: /catholic-news/
+---
+
+## 📰 Catholic News & Updates
+
+Latest headlines, Church teachings, and Vatican updates.
+EOL
+
+          # --------------------
+          # Theology Page
+          # --------------------
+          cat > pages/theology.md <<EOL
+---
+title: "Theology Studies"
+layout: page
+permalink: /theology/
+---
+
+## 🎓 Theology and Faith Studies
+
+Explore Christology, Mariology, Sacraments, and Church Fathers.
+EOL
+
+      - name: Build site
+        run: bundle exec jekyll build -d _site
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
